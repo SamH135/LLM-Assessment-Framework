@@ -12,8 +12,8 @@ A framework for evaluating and testing Large Language Models (LLMs) across vario
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/llm-testing-framework.git
-cd llm-testing-framework
+git clone https://github.com/bwinson/SE-Project.git
+cd SE-Project
 ```
 
 2. (Optional but recommended) Create and activate a virtual environment:
