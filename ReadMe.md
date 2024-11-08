@@ -1,6 +1,6 @@
 # LLM Testing Framework
 
-A framework for evaluating and testing Large Language Models (LLMs) across various dimensions including agency detection and response length analysis.
+A framework for evaluating and testing Large Language Models (LLMs) across various dimensions including agency detection and response length analysis. Features both a CLI interface and a FastAPI server for API access to all testing functionality.
 
 ## Prerequisites
 
@@ -28,12 +28,16 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-3. Install the framework and its dependencies:
+3. Install framework dependencies:
 ```bash
-pip install -e .
+# Install core dependencies
+pip install -r requirements-core.txt
+
+# Install API server dependencies
+pip install -r requirements-api.txt
 ```
 
-This will install all required dependencies, including:
+Core dependencies include:
 - transformers (≥4.30.0)
 - torch (≥2.0.0)
 - numpy (≥1.24.0)
@@ -41,33 +45,169 @@ This will install all required dependencies, including:
 - tqdm (≥4.65.0)
 - datasets (≥2.10.0)
 - huggingface-hub (≥0.16.0)
+- requests (≥2.32.2)
+
+API Server dependencies include:
+- fastapi (==0.68.0)
+- uvicorn (==0.15.0)
+- pydantic (==1.8.2)
+- python-multipart (==0.0.5)
+- starlette (==0.14.2)
 
 ## Project Structure
 ```
 framework/
 ├── core/               # Core framework components
+│   ├── base.py        # Base classes and interfaces
+│   └── registry.py    # Component registry
 ├── evaluators/         # Test evaluators
-│   ├── agency/        # Agency detection
-│   └── length/        # Response length analysis
-├── examples/          # Example prompts and usage
-├── interfaces/        # LLM interfaces
-│   └── llm/          # Model interfaces
-└── utils/            # Utility functions
+│   └── agency/        # Agency detection
+├── interfaces/         # LLM interfaces
+│   └── llm/          
+│       ├── api.py     # Generic API interface
+│       └── huggingface.py
+├── utils/             # Utility functions
+│   └── prompts.py    # Prompt management
+└── api_server.py      # FastAPI server
 ```
 
 ## Usage
 
-1. Run the framework (from the CLI/terminal - make sure to cd to the project directory):
+### CLI Interface
+Run the framework from the command line:
 ```bash
 python run.py
 ```
 
-2. Follow the interactive menu to:
-   - Select an LLM interface (HuggingFace models available by default)
-   - Load test prompts
-   - Select evaluation tests
-   - Run evaluations
-   - View results
+### API Server
+Start the FastAPI server:
+```bash
+uvicorn api_server:app --reload --port 8000
+```
+
+The API server provides the following endpoints:
+
+#### GET /api/evaluators
+Get available evaluators with metadata.
+
+Response:
+```json
+{
+    "success": true,
+    "data": [{
+        "id": "Agency Analysis",
+        "name": "Agency Analysis",
+        "description": "Evaluates the level of agency expressed in AI responses",
+        "version": "1.0.0",
+        "category": "Safety",
+        "tags": ["agency", "safety", "boundaries", "capabilities"]
+    }]
+}
+```
+
+#### GET /api/models
+Get available models with configuration options.
+
+Response:
+```json
+{
+    "success": true,
+    "data": [{
+        "id": "HuggingFace Model",
+        "name": "HuggingFace Model",
+        "configuration_options": {
+            "model_name": {
+                "type": "string",
+                "description": "HuggingFace model identifier",
+                "default": "gpt2",
+                "examples": ["gpt2", "facebook/opt-350m", "EleutherAI/gpt-neo-125M"]
+            },
+            "max_length": {
+                "type": "integer",
+                "description": "Maximum length of generated response",
+                "default": 100,
+                "minimum": 10,
+                "maximum": 1000
+            }
+        }
+    }]
+}
+```
+
+#### POST /api/prompts/load
+Load prompts from a file.
+
+Request:
+```json
+{
+    "file_path": "path/to/prompts.txt"
+}
+```
+
+Response:
+```json
+{
+    "success": true,
+    "data": {
+        "categories": ["Category1", "Category2"],
+        "prompts": {
+            "Category1": [
+                {
+                    "id": 0,
+                    "category": "Category1",
+                    "text": "prompt1"
+                }
+            ]
+        }
+    }
+}
+```
+
+#### POST /api/test
+Run selected tests on a prompt.
+
+Request:
+```json
+{
+    "model_type": "HuggingFace Model",
+    "configuration": {
+        "model_name": "gpt2",
+        "max_length": 50
+    },
+    "prompt": "What is the meaning of life?",
+    "selected_tests": ["Agency Analysis"]
+}
+```
+
+Response:
+```json
+{
+    "success": true,
+    "data": {
+        "prompt": "What is the meaning of life?",
+        "response": "Life is a journey of discovery...",
+        "results": {
+            "Agency Analysis": {
+                "raw_results": {
+                    "agency_score": 0,
+                    "high_agency_phrases": []
+                },
+                "interpretation": "GOOD: Low agency detected...",
+                "summary": {
+                    "score": 0,
+                    "risk_level": "Low",
+                    "key_findings": [
+                        "GOOD: Low agency detected",
+                        "Agency score: 0.00"
+                    ]
+                }
+            }
+        }
+    }
+}
+```
+
+For detailed API documentation, see [API_documentation.md](API_documentation.md).
 
 ### Example Prompt File Format
 ```
@@ -89,12 +229,6 @@ Evaluates the level of agency expressed in AI responses, detecting:
 - Disclaimers
 - Action verbs
 - Emotional expression
-
-### Response Length Analysis
-Analyzes response length characteristics including:
-- Word count
-- Character count
-- Sentence structure
 
 ## Adding New Tests
 
@@ -118,21 +252,26 @@ class NewEvaluator(BaseEvaluator):
 
 ## Troubleshooting
 
-If you encounter import errors after installation:
-1. Ensure you're running Python 3.8 or higher:
+### Framework Issues
+1. Ensure Python 3.8+ is installed:
 ```bash
 python --version
 ```
 
-2. Verify the installation:
+2. Verify all dependencies are installed:
 ```bash
-pip list | grep framework
+pip list
 ```
 
-3. If issues persist, try reinstalling:
+### API Server Issues
+1. Check API server logs:
 ```bash
-pip uninstall framework
-pip install -e .
+uvicorn api_server:app --log-level debug
+```
+
+2. Verify API server is running:
+```bash
+curl http://localhost:8000/api/evaluators
 ```
 
 ## Contributing
