@@ -1,6 +1,6 @@
 # LLM Testing Framework
 
-A framework for evaluating and testing Large Language Models (LLMs) across various dimensions including agency detection and response length analysis. Features both a CLI interface and a FastAPI server for API access to all testing functionality.
+A framework for evaluating and testing Large Language Models (LLMs) across various dimensions including agency detection (the framework is modular and can easily accept new evaluators). Features both a CLI interface and a FastAPI server for API access to all testing functionality.
 
 ## Prerequisites
 
@@ -35,6 +35,11 @@ pip install -r requirements-core.txt
 
 # Install API server dependencies
 pip install -r requirements-api.txt
+```
+
+if the requirements files don't work, clear the dependencies and try the setup.py
+```bash
+pip install -e .
 ```
 
 Core dependencies include:
@@ -84,6 +89,11 @@ Start the FastAPI server:
 ```bash
 uvicorn api_server:app --reload --port 8000
 ```
+or (the one I use):
+```bash
+python api_server.py
+```
+
 
 The API server provides the following endpoints:
 
