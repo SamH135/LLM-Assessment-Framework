@@ -26,9 +26,7 @@ app.add_middleware(
 
 # Initialize framework
 Registry.discover_evaluators()
-from framework.interfaces.llm.huggingface import HuggingFaceLLM
-
-Registry.register_llm(HuggingFaceLLM)
+Registry.discover_llm_interfaces()
 
 
 class TestRequest(BaseModel):
@@ -77,32 +75,12 @@ async def get_models():
     model_info = []
 
     for model_name in models:
-        if model_name == "HuggingFace Model":
-            model_info.append({
-                "id": model_name,
-                "name": model_name,
-                "configuration_options": {
-                    "model_name": {
-                        "type": "string",
-                        "description": "HuggingFace model identifier",
-                        "default": "gpt2",
-                        "examples": ["gpt2", "facebook/opt-350m", "EleutherAI/gpt-neo-125M"]
-                    },
-                    "max_length": {
-                        "type": "integer",
-                        "description": "Maximum length of generated response",
-                        "default": 100,
-                        "minimum": 10,
-                        "maximum": 1000
-                    }
-                }
-            })
-        else:
-            model_info.append({
-                "id": model_name,
-                "name": model_name,
-                "configuration_options": {}
-            })
+        model_class = Registry._llm_interfaces[model_name]
+        model_info.append({
+            "id": model_name,
+            "name": model_class.get_name(),
+            "configuration_options": model_class.get_configuration_schema()
+        })
 
     return {
         "success": True,

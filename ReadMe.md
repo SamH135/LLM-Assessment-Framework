@@ -4,7 +4,7 @@ A framework for evaluating and testing Large Language Models (LLMs) across vario
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or lower (3.11+ has potential syntax issues)
 - pip (Python package installer)
 - Git (for cloning the repository)
 
@@ -260,10 +260,68 @@ class NewEvaluator(BaseEvaluator):
         )
 ```
 
+## Adding New Interfaces
+
+1. Create a new Python file under `framework/interfaces/llm/`
+2. Implement the BaseLLMInterface interface
+3. Define configuration schema
+
+NOTE: the configuration schema provides information to the frontend
+so that it can dynamically render the required input fields for a given connection interface
+
+Example:
+```python
+class NewInterface(BaseLLMInterface):
+    def __init__(self, **kwargs):
+        # Initialize your interface with configuration
+        pass
+
+    @classmethod
+    def get_name(cls) -> str:
+        return "Your Interface Name"  # This appears in the UI dropdown
+
+    @classmethod
+    def get_configuration_schema(cls) -> Dict[str, Any]:
+        return {
+            "field_name": {
+                "type": "string",  # string, number, password
+                "description": "Field description",
+                "default": "default_value",
+                "required": True,
+                "examples": ["example1", "example2"]
+            }
+            # Add more configuration fields as needed
+        }
+
+    def generate_response(self, prompt: str, **kwargs) -> str:
+        # Implement response generation logic
+        return "Generated response"
+```
+    The interface will be automatically discovered and registered by the framework. 
+    The configuration schema defines what fields appear in the UI when your interface is selected.
+    
+    Supported configuration field types:
+    
+    - string: Text input
+    - number: Numeric input with optional min/max
+    - password: Secured input for sensitive data
+    - url: URL input with validation
+    
+    Configuration field attributes:
+    
+    - type: Field input type
+    - description: Help text shown to users
+    - default: Default value
+    - required: Whether field is mandatory
+    - examples: Example values shown to users
+    - sensitive: For password fields
+    - min/max: For number fields
+
 ## Troubleshooting
 
 ### Framework Issues
-1. Ensure Python 3.8+ is installed:
+1. Ensure Python 3.10 (or lower) is installed:
+
 ```bash
 python --version
 ```
@@ -288,7 +346,7 @@ curl http://localhost:8000/api/evaluators
 
 1. Fork the repository
 2. Create a feature branch
-3. Commit your changes
+3. Commit your changes (follow contribution guidelines)
 4. Push to the branch
 5. Create a Pull Request
 
