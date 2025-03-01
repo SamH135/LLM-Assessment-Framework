@@ -1,4 +1,4 @@
-# LLM Testing Framework
+# LLM Assessment Framework
 
 A framework for evaluating and testing Large Language Models (LLMs) across various dimensions including agency detection (the framework is modular and can easily accept new evaluators). Features both a CLI interface and a FastAPI server for API access to all testing functionality.
 
