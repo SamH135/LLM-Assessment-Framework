@@ -42,3 +42,14 @@ class BaseLLMInterface(ABC):
     @abstractmethod
     def generate_response(self, prompt: str, **kwargs) -> str:
         pass
+
+    @classmethod
+    @abstractmethod
+    def get_name(cls) -> str:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_configuration_schema(cls) -> Dict[str, Any]:
+        """Return configuration requirements for the interface"""
+        pass

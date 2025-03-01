@@ -17,6 +17,7 @@ class Registry:
     def discover_evaluators(cls) -> None:
         """Automatically discover and register all evaluators in the evaluators directory"""
         evaluators_path = Path(__file__).parent.parent / 'evaluators'
+        failed_evaluators = []
 
         # Get all subdirectories in the evaluators directory
         for module_info in pkgutil.iter_modules([str(evaluators_path)]):
@@ -33,12 +34,32 @@ class Registry:
                     if (inspect.isclass(obj) and
                             issubclass(obj, BaseEvaluator) and
                             obj != BaseEvaluator):
-                        cls.register_evaluator(obj)
-                        print(f"Registered evaluator: {obj.get_metadata().name}")
+                        try:
+                            # Try to create an instance to verify initialization works
+                            evaluator_instance = obj()
+                            # If initialization succeeds, register the evaluator
+                            cls.register_evaluator(obj)
+                            print(f"Successfully registered evaluator: {obj.get_metadata().name}")
+                        except Exception as init_error:
+                            error_msg = f"Failed to initialize evaluator {name}: {str(init_error)}"
+                            print(f"Warning: {error_msg}")
+                            failed_evaluators.append({
+                                "name": name,
+                                "error": str(init_error)
+                            })
 
             except Exception as e:
-                print(f"Warning: Failed to load evaluator {module_info.name}: {e}")
+                error_msg = f"Failed to load evaluator module {module_info.name}: {str(e)}"
+                print(f"Warning: {error_msg}")
+                failed_evaluators.append({
+                    "name": module_info.name,
+                    "error": str(e)
+                })
 
+        if failed_evaluators:
+            print("\nFailed evaluators summary:")
+            for failure in failed_evaluators:
+                print(f"- {failure['name']}: {failure['error']}")
     @classmethod
     def register_evaluator(cls, evaluator_class: Type[BaseEvaluator]) -> None:
         """Register an evaluator class"""
@@ -73,3 +94,27 @@ class Registry:
     def list_llms(cls) -> List[str]:
         """Get list of registered LLM interfaces"""
         return list(cls._llm_interfaces.keys())
+
+    @classmethod
+    def discover_llm_interfaces(cls) -> None:
+        """Automatically discover and register all LLM interfaces"""
+        interfaces_path = Path(__file__).parent.parent / 'interfaces' / 'llm'
+
+        for module_info in pkgutil.iter_modules([str(interfaces_path)]):
+            if module_info.name == '__init__':  # Skip __init__.py
+                continue
+
+            module_name = f"framework.interfaces.llm.{module_info.name}"
+            try:
+                module = importlib.import_module(module_name)
+
+                # Find all classes that inherit from BaseLLMInterface
+                for name, obj in inspect.getmembers(module):
+                    if (inspect.isclass(obj) and
+                            issubclass(obj, BaseLLMInterface) and
+                            obj != BaseLLMInterface):
+                        cls.register_llm(obj)
+                        print(f"Registered LLM interface: {obj.get_name()}")
+
+            except Exception as e:
+                print(f"Warning: Failed to load LLM interface {module_info.name}: {e}")
