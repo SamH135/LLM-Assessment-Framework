@@ -1,9 +1,0 @@
-# requirements-core.txt
-transformers>=4.30.0
-torch>=2.0.0
-numpy>=1.24.0
-tokenizers>=0.13.0
-tqdm>=4.65.0
-datasets>=2.10.0
-huggingface-hub>=0.16.0
-requests>=2.32.2
