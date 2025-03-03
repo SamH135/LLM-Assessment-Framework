@@ -12,8 +12,8 @@ A framework for evaluating and testing Large Language Models (LLMs) across vario
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/bwinson/SE-Project.git
-cd SE-Project
+git clone https://github.com/SamH135/LLM-Assessment-Framework.git
+
 ```
 
 2. (Optional but recommended) Create and activate a virtual environment:
@@ -30,12 +30,9 @@ source venv/bin/activate
 
 3. Install framework dependencies:
 ```bash
-# Install core dependencies
-pip install -r requirements-core.txt
+# Includes core dependencies and fastAPI server dependencies
+pip install -r requirements.txt
 
-# Install API server dependencies
-pip install -r requirements-api.txt
-```
 
 if the requirements files don't work, clear the dependencies and try the setup.py
 ```bash
@@ -79,7 +76,8 @@ framework/
 ## Usage
 
 ### CLI Interface
-Run the framework from the command line:
+* Mainly used for new feature/evaluator testing
+* Runs the framework from the command line
 ```bash
 python run.py
 ```
@@ -92,6 +90,25 @@ uvicorn api_server:app --reload --port 8000
 or (the one I use):
 ```bash
 python api_server.py
+```
+
+
+#### Successful Run Terminal Output
+this what you should see in the python IDE terminal when you run 'python api_server.py'
+```bash
+ (base) PS C:\Users\samue\OneDrive\Desktop\llm_framework_test2\AI-GARDIAN> python api_server.py
+ Successfully registered evaluator: Agency Analysis
+ INFO:framework.evaluators.dualAgency.evaluator:Semantic model initialized successfully on cpu
+ Successfully registered evaluator: Enhanced Agency Analysis
+ Successfully registered evaluator: Response Length Analysis
+ Registered LLM interface: API Model
+ Registered LLM interface: AWS Bedrock Model
+ Registered LLM interface: HuggingFace Model
+ INFO:     Started server process [10172]
+ INFO:     Waiting for application startup.
+ INFO:     Application startup complete.
+ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+
 ```
 
 
@@ -350,3 +367,9 @@ curl http://localhost:8000/api/evaluators
 4. Push to the branch
 5. Create a Pull Request
 
+## Ownership
+
+This project is proprietary software, architected by Sam Heidler, and owned by Secure IVAI. 
+
+All rights reserved.
+© 2025 Secure IVAI. Unauthorized use, reproduction, or distribution of this software or any portion of it may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under the law.
