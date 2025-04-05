@@ -4,7 +4,7 @@ A framework for evaluating and testing Large Language Models (LLMs) across vario
 
 ## Prerequisites
 
-- Python 3.10 or lower (3.11+ has potential syntax issues)
+- Python 3.8 (major refactoring needs to take place to update to a newer version of python, but everything works as is now)
 - pip (Python package installer)
 - Git (for cloning the repository)
 
