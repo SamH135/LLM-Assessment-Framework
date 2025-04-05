@@ -76,6 +76,7 @@ async def get_evaluators():
         "failed_evaluators": failed_evaluators  # Include information about failed evaluators
     }
 
+
 @app.get("/api/models")
 async def get_models():
     """Get available models with configuration options"""
@@ -179,6 +180,41 @@ async def run_test(request: TestRequest):
                 "error": str(e),
                 "error_type": type(e).__name__
             }
+        )
+
+
+# Add to api_server.py
+
+class CredentialRequest(BaseModel):
+    service: str
+    api_key: str
+
+
+@app.post("/api/credentials")
+async def save_credential(request: CredentialRequest):
+    """Save an API credential"""
+    try:
+        from framework.utils.credentials import CredentialManager
+        CredentialManager.save_credential(request.service, request.api_key)
+        return {"success": True, "message": f"{request.service} API key saved successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"success": False, "error": str(e)}
+        )
+
+
+@app.get("/api/credentials/{service}")
+async def check_credential(service: str):
+    """Check if a credential exists for the service"""
+    try:
+        from framework.utils.credentials import CredentialManager
+        has_credential = CredentialManager.get_credential(service) is not None
+        return {"success": True, "has_credential": has_credential}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"success": False, "error": str(e)}
         )
 
 
