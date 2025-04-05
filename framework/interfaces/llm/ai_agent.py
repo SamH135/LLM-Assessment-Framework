@@ -16,7 +16,6 @@ from ...core.registry import Registry
 LLM_CLIENTS_AVAILABLE = {}
 try:
     import anthropic
-
     LLM_CLIENTS_AVAILABLE["anthropic"] = True
 except ImportError:
     LLM_CLIENTS_AVAILABLE["anthropic"] = False
@@ -551,15 +550,233 @@ class LLMInterfaceGenerator:
 
         return generated_code, file_path
 
+    def _extract_code_from_response(self, response: str) -> str:
+        """
+        Extract code block from Claude's response if it's wrapped in markdown.
+        """
+        if not response:
+            raise ValueError("Empty response from Claude API")
 
-    class AIAgentInterface(BaseLLMInterface):
+        # Check if response contains Python code blocks
+        code_block_pattern = r"```python\s*(.*?)```"
+        matches = re.findall(code_block_pattern, response, re.DOTALL)
+
+        if matches:
+            # Return the largest code block (likely the complete file)
+            return max(matches, key=len).strip()
+
+        # If no code blocks, return the entire response
+        return response.strip()
+
+    def _save_interface_code(self, provider_name: str, code: str, output_path: Optional[str] = None) -> str:
         """
-        AI Agent interface that can dynamically generate and handle various LLM providers.
-        CopyThis interface can:
-        1. Try to connect to models not explicitly supported
-        2. Generate interface code for new model providers
-        3. Register new interfaces dynamically
+        Save the generated interface code to a file.
+
+        Args:
+            provider_name: Name of the provider
+            code: Generated interface code
+            output_path: Custom output path or directory
+
+        Returns:
+            Path to the saved file
         """
+        if not provider_name or not code:
+            raise ValueError("Provider name and code must be provided")
+
+        # Determine the file name based on provider name
+        file_name = f"{provider_name.lower().replace(' ', '_').replace('-', '_')}.py"
+
+        if output_path:
+            path = Path(output_path)
+            # If output_path is a directory, append the file name
+            if path.is_dir():
+                file_path = path / file_name
+            else:
+                file_path = path
+        else:
+            # Default location is in the interfaces/llm/ directory
+            file_path = str(Path(__file__).parent / file_name)
+
+        # Make sure the parent directory exists
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the code to the file
+        with open(file_path, 'w') as f:
+            f.write(code)
+
+        logger.info(f"Interface code saved to {file_path}")
+        return str(file_path)
+
+    def test_interface(self, code: str, provider_name: str, test_api_key: str,
+                       test_prompt: str = "Hello, world!") -> Tuple[bool, str]:
+        """
+        Test the generated interface with a simple prompt.
+
+        Args:
+            code: Generated interface code
+            provider_name: Name of the provider
+            test_api_key: API key to use for testing
+            test_prompt: Simple prompt to test the interface
+
+        Returns:
+            Tuple of (success, result_or_error)
+        """
+        if not code or not provider_name:
+            return False, "Code and provider name must be provided"
+
+        logger.info(f"Testing generated interface for {provider_name}...")
+
+        temp_path = None
+        try:
+            # Create a temporary file with the generated code
+            with tempfile.NamedTemporaryFile(suffix='.py', delete=False) as temp_file:
+                temp_file.write(code.encode('utf-8'))
+                temp_path = temp_file.name
+
+            # Add the directory containing the temp file to Python path
+            temp_dir = os.path.dirname(temp_path)
+            if temp_dir not in sys.path:
+                sys.path.insert(0, temp_dir)
+
+            # Import the temporary module
+            module_name = os.path.basename(temp_path).replace('.py', '')
+            spec = importlib.util.spec_from_file_location(module_name, temp_path)
+            if spec is None:
+                return False, f"Failed to create module spec for {temp_path}"
+
+            module = importlib.util.module_from_spec(spec)
+            if spec.loader is None:
+                return False, f"Module spec has no loader for {temp_path}"
+
+            spec.loader.exec_module(module)
+
+            # Find the interface class in the module
+            interface_class = None
+            for attr_name in dir(module):
+                attr = getattr(module, attr_name)
+                if isinstance(attr, type) and attr.__name__.endswith('Interface'):
+                    interface_class = attr
+                    break
+
+            if not interface_class:
+                return False, "No interface class found in the generated code"
+
+            # Get configuration schema
+            config_schema = interface_class.get_configuration_schema()
+
+            # Create minimal configuration with test API key
+            config = {"api_key": test_api_key}
+
+            # Add required fields with default or empty values
+            for key, field in config_schema.items():
+                if isinstance(field, dict) and field.get("required", False) and key != "api_key":
+                    # Use default value if available
+                    if "default" in field:
+                        config[key] = field["default"]
+                    # For strings, use empty string
+                    elif field.get("type") == "string":
+                        config[key] = ""
+                    # For numbers, use minimum value or 0
+                    elif field.get("type") == "number":
+                        config[key] = field.get("minimum", 0)
+
+            # Initialize the interface
+            interface = interface_class(**config)
+
+            # Generate a response
+            response = interface.generate_response(test_prompt)
+
+            return True, response
+
+        except Exception as e:
+            return False, f"Error testing interface: {str(e)}"
+
+        finally:
+            # Clean up
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.unlink(temp_path)
+                except Exception as e:
+                    logger.warning(f"Failed to delete temporary file {temp_path}: {e}")
+
+    def generate_and_test(self,
+                          provider_name: str,
+                          api_docs_url: Optional[str] = None,
+                          api_examples: Optional[Dict[str, Any]] = None,
+                          test_api_key: Optional[str] = None,
+                          output_path: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate interface code and test it if a test API key is provided.
+
+        Args:
+            provider_name: Name of the LLM provider
+            api_docs_url: URL to the provider's API documentation
+            api_examples: Dictionary containing example API calls and responses
+            test_api_key: API key to use for testing
+            output_path: Path where to save the generated interface
+
+        Returns:
+            Dictionary with generation and test results
+        """
+        if not provider_name:
+            raise ValueError("Provider name must be specified")
+
+        # Generate the interface code
+        try:
+            generated_code, file_path = self.generate_interface(
+                provider_name=provider_name,
+                api_docs_url=api_docs_url,
+                api_examples=api_examples,
+                output_path=None  # Don't save immediately
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate interface: {e}")
+            raise RuntimeError(f"Interface generation failed: {e}")
+
+        result = {
+            "provider_name": provider_name,
+            "generated_code": generated_code,
+        }
+
+        # Test the interface if a test API key is provided
+        if test_api_key:
+            try:
+                success, test_result = self.test_interface(
+                    code=generated_code,
+                    provider_name=provider_name,
+                    test_api_key=test_api_key
+                )
+
+                result["test_success"] = success
+                result["test_result"] = test_result
+
+                # Only save the interface if testing succeeded or no testing was done
+                if success and output_path:
+                    file_path = self._save_interface_code(provider_name, generated_code, output_path)
+                    result["file_path"] = file_path
+            except Exception as e:
+                logger.error(f"Failed to test interface: {e}")
+                result["test_success"] = False
+                result["test_result"] = f"Test error: {str(e)}"
+        elif output_path:
+            # Save without testing
+            try:
+                file_path = self._save_interface_code(provider_name, generated_code, output_path)
+                result["file_path"] = file_path
+            except Exception as e:
+                logger.error(f"Failed to save interface: {e}")
+
+        return result
+
+
+class AIAgentInterface(BaseLLMInterface):
+    """
+    AI Agent interface that can dynamically generate and handle various LLM providers.
+    CopyThis interface can:
+    1. Try to connect to models not explicitly supported
+    2. Generate interface code for new model providers
+    3. Register new interfaces dynamically
+    """
 
     def __init__(self, model_provider: str = None, api_base: str = None, api_key: str = None,
                  model_name: str = None, **kwargs):
